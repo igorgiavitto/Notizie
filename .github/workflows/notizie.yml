@@ -11,44 +11,30 @@ permissions:
   id-token: write
 
 concurrency:
-  group: notizie
-  cancel-in-progress: false
+  group: notizie-update
+  cancel-in-progress: false   # queue runs instead of running them in parallel
 
 jobs:
-  aggiorna:
+  update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    env:
-      TZ: Europe/Rome   # orari della pagina in ora italiana
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          fetch-depth: 0
 
-      - name: Genera la pagina
-        run: |
-          python genera_notizie_google.py
-          mkdir -p docs
-          mv notizie_google.html docs/index.html
+      # ... your step that generates docs/index.html ...
 
-      - name: Salva la pagina nel repository
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/index.html
-          git diff --cached --quiet || git commit -m "Notizie $(date '+%d/%m %H:%M')"
-          git push
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-
-      - id: deploy
-        uses: actions/deploy-pages@v4
+          git diff --cached --quiet && exit 0   # nothing changed, skip
+          git commit -m "Notizie $(date +'%d/%m %H:%M')"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1s: actions/deploy-pages@v4
