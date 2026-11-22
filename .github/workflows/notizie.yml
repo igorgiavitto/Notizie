@@ -11,30 +11,51 @@ permissions:
   id-token: write
 
 concurrency:
-  group: notizie-update
-  cancel-in-progress: false   # queue runs instead of running them in parallel
+  group: notizie
+  cancel-in-progress: false   # un'esecuzione alla volta, le altre aspettano
 
 jobs:
-  update:
+  aggiorna:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      TZ: Europe/Rome   # orari della pagina in ora italiana
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          fetch-depth: 0
+          python-version: "3.12"
 
-      # ... your step that generates docs/index.html ...
+      - name: Genera la pagina
+        run: |
+          python genera_notizie_google.py
+          mkdir -p docs
+          mv notizie_google.html docs/index.html
 
-      - name: Commit and push
+      - name: Salva la pagina nel repository
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add docs/index.html
-          git diff --cached --quiet && exit 0   # nothing changed, skip
-          git commit -m "Notizie $(date +'%d/%m %H:%M')"
+          git diff --cached --quiet && exit 0   # nessuna novità
+          git commit -m "Notizie $(date '+%d/%m %H:%M')"
+          # se nel frattempo qualcuno ha modificato il repository,
+          # prende le modifiche e riprova (fino a 3 volte)
           for i in 1 2 3; do
             git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0
             sleep 5
           done
           exit 1
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
