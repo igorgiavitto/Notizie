@@ -37,4 +37,4 @@ jobs:
             git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0
             sleep 5
           done
-          exit 1s: actions/deploy-pages@v4
+          exit 1
