@@ -188,7 +188,7 @@ def togli_doppioni(items):
     return out
 
 
-def genera(ore, ogni):
+def genera(ore, ogni, refresh_min=0):
     print(f"[{datetime.now():%H:%M}] Scarico {len(FEEDS)} feed…")
     stato, tutte = [], []
     with ThreadPoolExecutor(max_workers=8) as ex:
@@ -227,7 +227,8 @@ def genera(ore, ogni):
     giorni = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"]
     mesi = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     data_it = f"{giorni[ora.weekday()]} {ora.day} {mesi[ora.month - 1]} {ora.year}, ore {ora:%H:%M}"
-    refresh = f'<meta http-equiv="refresh" content="{ogni * 60}">' if ogni else ""
+    refresh_min = refresh_min or ogni
+    refresh = f'<meta http-equiv="refresh" content="{refresh_min * 60}">' if refresh_min else ""
 
     pagina = PAGINA.format(
         refresh=refresh, titolo_data=f"{ora.day} {mesi[ora.month - 1]} {ora.year}",
@@ -277,15 +278,19 @@ def main():
     p = argparse.ArgumentParser(description="Genera il report delle notizie in HTML")
     p.add_argument("--ore", type=int, default=24, help="finestra temporale in ore (default 24)")
     p.add_argument("--ogni", type=int, default=0, help="rigenera ogni N minuti (0 = una volta sola)")
+    p.add_argument("--ricarica", type=int, default=0,
+                   help="la pagina si ricarica da sola nel browser ogni N minuti (senza rigenerare)")
+    p.add_argument("--no-browser", action="store_true", help="non aprire il browser (es. su GitHub Actions)")
     a = p.parse_args()
-    out = genera(a.ore, a.ogni)
-    webbrowser.open(out.resolve().as_uri())
+    out = genera(a.ore, a.ogni, a.ricarica)
+    if not a.no_browser:
+        webbrowser.open(out.resolve().as_uri())
     if a.ogni:
         print(f"Aggiornamento ogni {a.ogni} minuti. Ctrl+C per fermare.")
         try:
             while True:
                 time.sleep(a.ogni * 60)
-                genera(a.ore, a.ogni)
+                genera(a.ore, a.ogni, a.ricarica)
         except KeyboardInterrupt:
             sys.exit(0)
 
