@@ -2,17 +2,19 @@ name: Aggiorna notizie
 
 on:
   schedule:
-    - cron: "17 * * * *"   # ogni ora, al minuto 17 (orario UTC)
-  workflow_dispatch:        # permette l'avvio a mano dalla scheda Actions
+    # GitHub non garantisce le esecuzioni programmate: con carico alto le
+    # ritarda o le salta. Tre orari per ora fanno sì che almeno uno parta.
+    - cron: "7,27,47 * * * *"   # orario UTC
+  workflow_dispatch:            # avvio a mano dalla scheda Actions
 
 permissions:
-  contents: write   # per salvare la pagina nel repository
-  pages: write      # per pubblicarla su GitHub Pages
+  contents: read
+  pages: write
   id-token: write
 
 concurrency:
   group: notizie
-  cancel-in-progress: false   # un'esecuzione alla volta, le altre aspettano
+  cancel-in-progress: true      # se ne parte una nuova, quella vecchia non serve più
 
 jobs:
   aggiorna:
@@ -32,30 +34,20 @@ jobs:
 
       - name: Genera la pagina
         run: |
-          python genera_notizie_google.py
-          mkdir -p docs
-          mv notizie_google.html docs/index.html
-
-      - name: Salva la pagina nel repository
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html
-          git diff --cached --quiet && exit 0   # nessuna novità
-          git commit -m "Notizie $(date '+%d/%m %H:%M')"
-          # se nel frattempo qualcuno ha modificato il repository,
-          # prende le modifiche e riprova (fino a 3 volte)
-          for i in 1 2 3; do
-            git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0
-            sleep 5
-          done
-          exit 1
+          python genera_notizie_google.py --no-browser --ricarica 20
+          mkdir -p site
+          mv notizie_google.html site/index.html
 
       - uses: actions/configure-pages@v5
 
+      # nome diverso per ogni tentativo: evita l'errore
+      # "Multiple artifacts named github-pages" quando si rilancia un'esecuzione
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: site
+          name: github-pages-${{ github.run_attempt }}
 
       - id: deploy
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
