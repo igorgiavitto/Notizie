@@ -40,14 +40,12 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      # nome diverso per ogni tentativo: evita l'errore
-      # "Multiple artifacts named github-pages" quando si rilancia un'esecuzione
+      # Nota: non usare "Re-run" su un'esecuzione fallita (crea un secondo
+      # pacchetto github-pages e la pubblicazione fallisce): avviane una nuova
+      # con "Run workflow".
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-          name: github-pages-${{ github.run_attempt }}
 
       - id: deploy
         uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_attempt }}
