@@ -17,12 +17,10 @@ concurrency:
   cancel-in-progress: true      # se ne parte una nuova, quella vecchia non serve più
 
 jobs:
-  aggiorna:
+  # 1) genera la pagina e la carica come pacchetto
+  genera:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     env:
       TZ: Europe/Rome   # orari della pagina in ora italiana
     steps:
@@ -40,12 +38,19 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      # Nota: non usare "Re-run" su un'esecuzione fallita (crea un secondo
-      # pacchetto github-pages e la pubblicazione fallisce): avviane una nuova
-      # con "Run workflow".
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
+  # 2) pubblica la pagina su GitHub Pages (job separato: schema ufficiale di GitHub;
+  #    se fallisce si può rilanciare solo questo job con "Re-run failed jobs")
+  pubblica:
+    needs: genera
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4
